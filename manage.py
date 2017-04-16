@@ -133,7 +133,10 @@ if __name__ == '__main__':
                 return True
 
             def __getitem__(self, item):
-                return 'notmigrations'
+                if DJANGO_1_9:
+                    return 'notmigrations'
+                else:
+                    return None
 
         dynamic_configs['MIGRATION_MODULES'] = DisableMigrations()
     if 'test' in sys.argv:
@@ -154,6 +157,7 @@ if __name__ == '__main__':
         'cms.middleware.user.CurrentUserMiddleware',
         'cms.middleware.page.CurrentPageMiddleware',
         'cms.middleware.toolbar.ToolbarMiddleware',
+        'debug_toolbar.middleware.DebugToolbarMiddleware',
         'django.middleware.cache.FetchFromCacheMiddleware',
     ]
     if not DJANGO_1_9:

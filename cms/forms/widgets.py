@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from cms.utils.compat import DJANGO_1_10
 from django.contrib.admin.templatetags.admin_static import static
 from django.contrib.auth import get_permission_codename
 from django.contrib.sites.models import Site
@@ -19,6 +19,7 @@ class PageSelectWidget(MultiWidget):
     """A widget that allows selecting a page by first selecting a site and then
     a page on that site in a two step process.
     """
+    template_name = 'cms/widgets/pagewidgets.html'
 
     class Media:
         js = (
@@ -67,13 +68,7 @@ class PageSelectWidget(MultiWidget):
             return True
         return False
 
-    def render(self, name, value, attrs=None):
-        # THIS IS A COPY OF django.forms.widgets.MultiWidget.render()
-        # (except for the last line)
-
-        # value is a list of values, each corresponding to a widget
-        # in self.widgets.
-
+    def _build_widgets(self):
         site_choices = get_site_choices()
         page_choices = get_page_choices()
         self.site_choices = site_choices
@@ -83,37 +78,58 @@ class PageSelectWidget(MultiWidget):
                    Select(choices=self.choices, attrs={'style': "display:none;"} ),
         )
 
-        if not isinstance(value, list):
-            value = self.decompress(value)
-        output = []
-        final_attrs = self.build_attrs(attrs)
-        id_ = final_attrs.get('id', None)
-        for i, widget in enumerate(self.widgets):
-            try:
-                widget_value = value[i]
-            except IndexError:
-                widget_value = None
-            if id_:
-                final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
-            output.append(widget.render(name + '_%s' % i, widget_value, final_attrs))
-        output.append(r'''<script type="text/javascript">
-            var CMS = window.CMS || {};
+    def _build_script(self, name):
+        return r"""<script type=\"text/javascript\">
+                var CMS = window.CMS || {};
+    
+                CMS.Widgets = CMS.Widgets || {};
+                CMS.Widgets._pageSelectWidgets = CMS.Widgets._pageSelectWidgets || [];
+                CMS.Widgets._pageSelectWidgets.push({
+                    name: '%(name)s'
+                });
+            </script>""" % {
+                'name': name
+            }
 
-            CMS.Widgets = CMS.Widgets || {};
-            CMS.Widgets._pageSelectWidgets = CMS.Widgets._pageSelectWidgets || [];
-            CMS.Widgets._pageSelectWidgets.push({
-                name: '%(name)s'
-            });
-        </script>''' % {
-            'name': name
-        })
-        return mark_safe(self.format_output(output))
+    def get_context(self, name, value, attrs):
+        self._build_widgets()
+        context = super(PageSelectWidget, self).get_context(name, value, attrs)
+        context['script_init'] = self._build_script(name)
+        return context
+
+    def render(self, name, value, attrs=None):
+        if DJANGO_1_10:
+            # THIS IS A COPY OF django.forms.widgets.MultiWidget.render()
+            # (except for the last line)
+
+            # value is a list of values, each corresponding to a widget
+            # in self.widgets.
+            self._build_widgets()
+
+            if not isinstance(value, list):
+                value = self.decompress(value)
+            output = []
+            final_attrs = self.build_attrs(attrs)
+            id_ = final_attrs.get('id', None)
+            for i, widget in enumerate(self.widgets):
+                try:
+                    widget_value = value[i]
+                except IndexError:
+                    widget_value = None
+                if id_:
+                    final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
+                output.append(widget.render(name + '_%s' % i, widget_value, final_attrs))
+            output.append(self._build_script(name))
+            return mark_safe(self.format_output(output))
+        else:
+            return super(PageSelectWidget, self).render(name, value, attrs)
 
     def format_output(self, rendered_widgets):
         return u' '.join(rendered_widgets)
 
 
 class PageSmartLinkWidget(TextInput):
+    template_name = 'cms/widgets/pagewidgets.html'
 
     class Media:
         css = {
@@ -138,11 +154,8 @@ class PageSmartLinkWidget(TextInput):
                 'You should provide an ajax_view argument that can be reversed to the PageSmartLinkWidget'
             )
 
-    def render(self, name=None, value=None, attrs=None):
-        final_attrs = self.build_attrs(attrs)
-        id_ = final_attrs.get('id', None)
-
-        output = [r'''<script type="text/javascript">
+    def _build_script(self, name, context):
+        return r"""<script type=\"text/javascript\">
             var CMS = window.CMS || {};
 
             CMS.Widgets = CMS.Widgets || {};
@@ -153,15 +166,26 @@ class PageSmartLinkWidget(TextInput):
                 lang: '%(language_code)s',
                 url: '%(ajax_url)s'
             });
-        </script>''' % {
-            'element_id': id_,
-            'placeholder_text': final_attrs.get('placeholder_text', ''),
+        </script>""" % {
+            'element_id': context.get('id', ''),
+            'placeholder_text': context.get('placeholder_text', ''),
             'language_code': self.language,
             'ajax_url': force_text(self.ajax_url)
-        }]
+        }
 
-        output.append(super(PageSmartLinkWidget, self).render(name, value, attrs))
-        return mark_safe(u''.join(output))
+    def get_context(self, name, value, attrs):
+        context = super(PageSmartLinkWidget, self).get_context(name, value, attrs)
+        context['script_init'] = self._build_script(name, context['widget'])
+        return context
+
+    def render(self, name=None, value=None, attrs=None):
+        if DJANGO_1_10:
+            final_attrs = self.build_attrs(attrs)
+            output = list(self._build_script(name, final_attrs))
+            output.append(super(PageSmartLinkWidget, self).render(name, value, attrs))
+            return mark_safe(u''.join(output))
+        else:
+            return super(PageSmartLinkWidget, self).render(name, value, attrs)
 
 
 class UserSelectAdminWidget(Select):
