@@ -19,7 +19,7 @@ class PageSelectWidget(MultiWidget):
     """A widget that allows selecting a page by first selecting a site and then
     a page on that site in a two step process.
     """
-    template_name = 'cms/widgets/pagewidgets.html'
+    template_name = 'cms/widgets/pageselectwidget.html'
 
     class Media:
         js = (
@@ -78,8 +78,8 @@ class PageSelectWidget(MultiWidget):
                    Select(choices=self.choices, attrs={'style': "display:none;"} ),
         )
 
-    def _build_script(self, name):
-        return r"""<script type=\"text/javascript\">
+    def _build_script(self, name, value, attrs):
+        return r"""<script type="text/javascript">
                 var CMS = window.CMS || {};
     
                 CMS.Widgets = CMS.Widgets || {};
@@ -94,10 +94,10 @@ class PageSelectWidget(MultiWidget):
     def get_context(self, name, value, attrs):
         self._build_widgets()
         context = super(PageSelectWidget, self).get_context(name, value, attrs)
-        context['script_init'] = self._build_script(name)
+        context['widget']['script_init'] = self._build_script(name, value, context['widget']['attrs'])
         return context
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         if DJANGO_1_10:
             # THIS IS A COPY OF django.forms.widgets.MultiWidget.render()
             # (except for the last line)
@@ -119,17 +119,17 @@ class PageSelectWidget(MultiWidget):
                 if id_:
                     final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
                 output.append(widget.render(name + '_%s' % i, widget_value, final_attrs))
-            output.append(self._build_script(name))
+            output.append(self._build_script(name, final_attrs))
             return mark_safe(self.format_output(output))
         else:
-            return super(PageSelectWidget, self).render(name, value, attrs)
+            return super(PageSelectWidget, self).render(name, value, attrs, renderer)
 
     def format_output(self, rendered_widgets):
         return u' '.join(rendered_widgets)
 
 
 class PageSmartLinkWidget(TextInput):
-    template_name = 'cms/widgets/pagewidgets.html'
+    template_name = 'cms/widgets/pagesmartlinkwidget.html'
 
     class Media:
         css = {
@@ -154,8 +154,8 @@ class PageSmartLinkWidget(TextInput):
                 'You should provide an ajax_view argument that can be reversed to the PageSmartLinkWidget'
             )
 
-    def _build_script(self, name, context):
-        return r"""<script type=\"text/javascript\">
+    def _build_script(self, name, value, attrs):
+        return r"""<script type="text/javascript">
             var CMS = window.CMS || {};
 
             CMS.Widgets = CMS.Widgets || {};
@@ -167,25 +167,25 @@ class PageSmartLinkWidget(TextInput):
                 url: '%(ajax_url)s'
             });
         </script>""" % {
-            'element_id': context.get('id', ''),
-            'placeholder_text': context.get('placeholder_text', ''),
+            'element_id': attrs.get('id', ''),
+            'placeholder_text': attrs.get('placeholder_text', ''),
             'language_code': self.language,
             'ajax_url': force_text(self.ajax_url)
         }
 
     def get_context(self, name, value, attrs):
         context = super(PageSmartLinkWidget, self).get_context(name, value, attrs)
-        context['script_init'] = self._build_script(name, context['widget'])
+        context['widget']['script_init'] = self._build_script(name, value, context['widget']['attrs'])
         return context
 
-    def render(self, name=None, value=None, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         if DJANGO_1_10:
             final_attrs = self.build_attrs(attrs)
             output = list(self._build_script(name, final_attrs))
             output.append(super(PageSmartLinkWidget, self).render(name, value, attrs))
             return mark_safe(u''.join(output))
         else:
-            return super(PageSmartLinkWidget, self).render(name, value, attrs)
+            return super(PageSmartLinkWidget, self).render(name, value, attrs, renderer)
 
 
 class UserSelectAdminWidget(Select):
@@ -223,7 +223,13 @@ class AppHookSelect(Select):
         self.app_namespaces = app_namespaces
         super(AppHookSelect, self).__init__(attrs, choices)
 
-    def render_option(self, selected_choices, option_value, option_label):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super(AppHookSelect, self).create_option(name, value, label, selected, index, subindex, attrs)
+        if value in self.app_namespaces:
+            option['attrs']['data-namespace'] = escape(self.app_namespaces[value])
+        return option
+
+    def _build_option(self, selected_choices, option_value, option_label):
         if option_value is None:
             option_value = ''
         option_value = force_text(option_value)
@@ -239,13 +245,11 @@ class AppHookSelect(Select):
             data_html = mark_safe(' data-namespace="%s"' % escape(self.app_namespaces[option_value]))
         else:
             data_html = ''
+        return option_value, selected_html, data_html, force_text(option_label)
 
-        return '<option value="%s"%s%s>%s</option>' % (
-            option_value,
-            selected_html,
-            data_html,
-            force_text(option_label),
-        )
+    def render_option(self, selected_choices, option_value, option_label):
+        option_data = self._build_option(selected_choices, option_value, option_label)
+        return '<option value="%s"%s%s>%s</option>' % option_data
 
 
 class ApplicationConfigSelect(Select):
@@ -259,6 +263,7 @@ class ApplicationConfigSelect(Select):
     A stub 'add-another' link is created and filled in with the correct URL by the same
     javascript.
     """
+    template_name = 'cms/widgets/applicationconfigselect.html'
 
     class Media:
         js = (
@@ -269,23 +274,43 @@ class ApplicationConfigSelect(Select):
         self.app_configs = app_configs
         super(ApplicationConfigSelect, self).__init__(attrs, choices)
 
-    def render(self, name, value, attrs=None, choices=()):
-        output = list(super(ApplicationConfigSelect, self).render(name, value, attrs))
-        output.append('<script>\n')
-        output.append('var apphooks_configuration = {\n')
+    def _build_script(self, name, value, attrs):
+        configs = []
+        urls = []
         for application, cms_app in self.app_configs.items():
-            output.append("'%s': [%s]," % (application, ",".join(["['%s', '%s']" % (config.pk, escapejs(escape(config))) for config in cms_app.get_configs()])))  # noqa
-        output.append('\n};\n')
-        output.append('var apphooks_configuration_url = {\n')
+            configs.append("'%s': [%s]" % (application, ",".join(
+                ["['%s', '%s']" % (config.pk, escapejs(escape(config))) for config in cms_app.get_configs()])))  # noqa
         for application, cms_app in self.app_configs.items():
-            output.append("'%s': '%s'," % (application, cms_app.get_config_add_url()))
-        output.append('\n};\n')
-        output.append('var apphooks_configuration_value = \'%s\';\n' % value)
-        output.append('</script>')
+            urls.append("'%s': '%s'" % (application, cms_app.get_config_add_url()))
+        return r"""<script type="text/javascript">
+            var apphooks_configuration = {
+                %(apphooks_configurations)s
+            };
+            var apphooks_configuration_url = {
+                %(apphooks_url)s
+            };
+            var apphooks_configuration_value = '%(apphooks_value)s';
+        </script>""" % {
+            'apphooks_configurations': ','.join(configs),
+            'apphooks_url': ','.join(urls),
+            'apphooks_value': value,
+        }
 
-        related_url = ''
-        output.append('<a href="%s" class="add-another" id="add_%s" onclick="return showAddAnotherPopup(this);"> '
-                      % (related_url, name))
-        output.append('<img src="%s" width="10" height="10" alt="%s"/></a>'
-                      % (static('admin/img/icon_addlink.gif'), _('Add Another')))
-        return mark_safe(''.join(output))
+    def get_context(self, name, value, attrs):
+        context = super(ApplicationConfigSelect, self).get_context(name, value, attrs)
+        context['widget']['script_init'] = self._build_script(name, value, context['widget']['attrs'])
+        return context
+
+    def render(self, name, value, attrs=None, renderer=None):
+        if DJANGO_1_10:
+            output = list(super(ApplicationConfigSelect, self).render(name, value, attrs))
+            output.append(self._build_script(name, value, attrs))
+
+            related_url = ''
+            output.append('<a href="%s" class="add-another" id="add_%s" onclick="return showAddAnotherPopup(this);"> '
+                          % (related_url, name))
+            output.append('<img src="%s" width="10" height="10" alt="%s"/></a>'
+                          % (static('admin/img/icon_addlink.gif'), _('Add Another')))
+            return mark_safe(''.join(output))
+        else:
+            return super(ApplicationConfigSelect, self).render(name, value, attrs, renderer)

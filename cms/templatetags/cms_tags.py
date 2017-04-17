@@ -95,9 +95,10 @@ def _get_page_by_untyped_arg(page_lookup, request, site_id):
         if settings.DEBUG:
             raise Page.DoesNotExist(body)
         else:
+            mw = getattr(settings, 'MIDDLEWARE', getattr(settings, 'MIDDLEWARE_CLASSES'))
             if getattr(settings, 'SEND_BROKEN_LINK_EMAILS', False):
                 mail_managers(subject, body, fail_silently=True)
-            elif 'django.middleware.common.BrokenLinkEmailsMiddleware' in settings.MIDDLEWARE_CLASSES:
+            elif 'django.middleware.common.BrokenLinkEmailsMiddleware' in mw:
                 middle = BrokenLinkEmailsMiddleware()
                 domain = request.get_host()
                 path = request.get_full_path()

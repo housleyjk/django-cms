@@ -43,6 +43,13 @@ class BaseFormMixin(object):
         return [f for f in self.visible_fields() if not f.field.required]
 
 
+class WizardOptionWidgets(forms.RadioSelect):
+    template_name = 'cms/wizards/wizardoptionwidget.html'
+
+    def get_context(self, name, value, attrs):
+        return super(WizardOptionWidgets, self).get_context(name, value, attrs)
+
+
 class WizardStep1Form(BaseFormMixin, forms.Form):
 
     class Media:
@@ -62,7 +69,7 @@ class WizardStep1Form(BaseFormMixin, forms.Form):
         widget=forms.HiddenInput
     )
     language = forms.CharField(widget=forms.HiddenInput)
-    entry = forms.ChoiceField(choices=[], widget=forms.RadioSelect())
+    entry = forms.ChoiceField(choices=[], widget=WizardOptionWidgets())
 
     def __init__(self, *args, **kwargs):
         super(WizardStep1Form, self).__init__(*args, **kwargs)
