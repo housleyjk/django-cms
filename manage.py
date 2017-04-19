@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import warnings
 
 import app_manage
 
+from cms.exceptions import DontUsePageAttributeWarning
 from cms.utils.compat import DJANGO_1_9
 
 gettext = lambda s: s
+warnings.filterwarnings('ignore', category=DontUsePageAttributeWarning)
 
 
 def install_auth_user_model(settings, value):
