@@ -1,4 +1,4 @@
-=== 3.4.3 (unreleased) ===
+=== 3.4.4 (unreleased) ===
 
 * Fixed a bug where canceling the publishing dialog wasn't respected.
 * Fixed a bug when after authentication us redirected on wrong url (site have only one language)
@@ -14,6 +14,17 @@
 * Fixed a bug which prevented a page from being marked as dirty when a placeholder was cleared.
 * Fixed an IntegrityError raised when publishing a page with no public version and whose publisher
   state is pending.
+* Fixed an issue with JS not being able to determine correct path to async bundle
+* Fixed a ``DoesNotExist`` db error raised when moving a page marked as published but whose public
+  translation does not exist.
+
+
+=== 3.4.3 (2017-04-24) ===
+
+* Fixed a security vulnerability in the page redirect field which allowed users
+  to insert JavaScript code.
+* Fixed a security vulnerability where the ``next`` parameter for the toolbar login
+  was not sanitised and could point to another domain.
 
 
 === 3.4.2 (2017-01-23) ===
