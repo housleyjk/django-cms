@@ -78,7 +78,7 @@ class PageSelectWidget(MultiWidget):
                    Select(choices=self.choices, attrs={'style': "display:none;"} ),
         )
 
-    def _build_script(self, name, value, attrs):
+    def _build_script(self, name, value, attrs={}):
         return r"""<script type="text/javascript">
                 var CMS = window.CMS || {};
     
@@ -119,7 +119,7 @@ class PageSelectWidget(MultiWidget):
                 if id_:
                     final_attrs = dict(final_attrs, id='%s_%s' % (id_, i))
                 output.append(widget.render(name + '_%s' % i, widget_value, final_attrs))
-            output.append(self._build_script(name, final_attrs))
+            output.append(self._build_script(name, value, final_attrs))
             return mark_safe(self.format_output(output))
         else:
             return super(PageSelectWidget, self).render(name, value, attrs, renderer)
@@ -154,7 +154,7 @@ class PageSmartLinkWidget(TextInput):
                 'You should provide an ajax_view argument that can be reversed to the PageSmartLinkWidget'
             )
 
-    def _build_script(self, name, value, attrs):
+    def _build_script(self, name, value, attrs={}):
         return r"""<script type="text/javascript">
             var CMS = window.CMS || {};
 
@@ -181,7 +181,7 @@ class PageSmartLinkWidget(TextInput):
     def render(self, name, value, attrs=None, renderer=None):
         if DJANGO_1_10:
             final_attrs = self.build_attrs(attrs)
-            output = list(self._build_script(name, final_attrs))
+            output = list(self._build_script(name, value, final_attrs))
             output.append(super(PageSmartLinkWidget, self).render(name, value, attrs))
             return mark_safe(u''.join(output))
         else:
@@ -274,7 +274,7 @@ class ApplicationConfigSelect(Select):
         self.app_configs = app_configs
         super(ApplicationConfigSelect, self).__init__(attrs, choices)
 
-    def _build_script(self, name, value, attrs):
+    def _build_script(self, name, value, attrs={}):
         configs = []
         urls = []
         for application, cms_app in self.app_configs.items():
