@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import warnings
 
 import app_manage
 
+from cms.exceptions import DontUsePageAttributeWarning
 from cms.utils.compat import DJANGO_1_9
 
 gettext = lambda s: s
+warnings.filterwarnings('ignore', category=DontUsePageAttributeWarning)
 
 
 def install_auth_user_model(settings, value):
@@ -70,7 +73,6 @@ if __name__ == '__main__':
     ]
 
     INSTALLED_APPS = [
-        'debug_toolbar',
         'django.contrib.auth',
         'django.contrib.contenttypes',
         'django.contrib.sessions',
@@ -94,16 +96,16 @@ if __name__ == '__main__':
             'OPTIONS': {
                 'debug': True,
                 'context_processors': [
-                    "django.contrib.auth.context_processors.auth",
+                    'django.contrib.auth.context_processors.auth',
                     'django.contrib.messages.context_processors.messages',
-                    "django.template.context_processors.i18n",
-                    "django.template.context_processors.debug",
-                    "django.template.context_processors.request",
-                    "django.template.context_processors.media",
+                    'django.template.context_processors.i18n',
+                    'django.template.context_processors.debug',
+                    'django.template.context_processors.request',
+                    'django.template.context_processors.media',
                     'django.template.context_processors.csrf',
-                    "cms.context_processors.cms_settings",
-                    "sekizai.context_processors.sekizai",
-                    "django.template.context_processors.static",
+                    'cms.context_processors.cms_settings',
+                    'sekizai.context_processors.sekizai',
+                    'django.template.context_processors.static',
                 ],
                 'loaders': (
                     'django.template.loaders.filesystem.Loader',
@@ -133,7 +135,10 @@ if __name__ == '__main__':
                 return True
 
             def __getitem__(self, item):
-                return 'notmigrations'
+                if DJANGO_1_9:
+                    return 'notmigrations'
+                else:
+                    return None
 
         dynamic_configs['MIGRATION_MODULES'] = DisableMigrations()
     if 'test' in sys.argv:
@@ -156,6 +161,9 @@ if __name__ == '__main__':
         'cms.middleware.toolbar.ToolbarMiddleware',
         'django.middleware.cache.FetchFromCacheMiddleware',
     ]
+    if 'server' not in sys.argv:
+        INSTALLED_APPS.insert(0, 'debug_toolbar')
+        MIDDLEWARES.insert(-1, 'debug_toolbar.middleware.DebugToolbarMiddleware')
     if not DJANGO_1_9:
         dynamic_configs['MIDDLEWARE'] = MIDDLEWARES
     else:

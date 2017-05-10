@@ -99,6 +99,7 @@ HELPER_SETTINGS = dict(
         'djangocms_text_ckeditor',
         'djangocms_grid',
         'filer',
+        'easy_thumbnails',
         'aldryn_bootstrap3',
         'cms.test_utils.project.placeholderapp',
     ],

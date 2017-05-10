@@ -6,3 +6,4 @@ import django
 DJANGO_1_8 = LooseVersion(django.get_version()) < LooseVersion('1.9')
 DJANGO_1_9 = LooseVersion(django.get_version()) < LooseVersion('1.10')
 DJANGO_1_10 = LooseVersion(django.get_version()) < LooseVersion('1.11')
+DJANGO_1_11 = LooseVersion(django.get_version()) < LooseVersion('2.0')
