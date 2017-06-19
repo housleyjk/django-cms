@@ -361,14 +361,27 @@ class PageTest(PageTestBase):
         redirect_to = URL_CMS_PAGE
 
         with self.login_user_context(superuser):
+            data['redirect'] = '/'
+            response = self.client.post(endpoint, data)
+            self.assertRedirects(response, redirect_to)
+
+        with self.login_user_context(superuser):
+            data['redirect'] = '/hello'
+            response = self.client.post(endpoint, data)
+            self.assertRedirects(response, redirect_to)
+
+        with self.login_user_context(superuser):
             data['redirect'] = '/hello/'
-            # Absolute paths should continue to work
+            response = self.client.post(endpoint, data)
+            self.assertRedirects(response, redirect_to)
+
+        with self.login_user_context(superuser):
+            data['redirect'] = '../hello'
             response = self.client.post(endpoint, data)
             self.assertRedirects(response, redirect_to)
 
         with self.login_user_context(superuser):
             data['redirect'] = '../hello/'
-            # Relative paths should continue to work
             response = self.client.post(endpoint, data)
             self.assertRedirects(response, redirect_to)
 
@@ -1071,8 +1084,8 @@ class PageTest(PageTestBase):
 
     def test_page_tree_regression_5892(self):
         # ref: https://github.com/divio/django-cms/issues/5892
-        # Tests tree integrity when moving sibling pages from right
-        # to left under the same parent.
+        # Tests the escaping of characters for a german translation
+        # in the page tree.
         superuser = self.get_superuser()
 
         create_page('Home', 'nav_playground.html', 'en')
@@ -1087,7 +1100,7 @@ class PageTest(PageTestBase):
                 self.assertEqual(response.status_code, 200)
                 parsed = self._parse_page_tree(response, parser_class=PageTreeOptionsParser)
                 content = force_text(parsed)
-                self.assertIn(u'Seiten Einstellungen (Shift-Klick für erweiterte Einstellungen)', content)
+                self.assertIn(u'(Shift-Klick für erweiterte Einstellungen)', content)
 
     def test_page_get_tree_endpoint_flat(self):
         superuser = self.get_superuser()
